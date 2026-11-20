@@ -1,0 +1,12 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: bats-ai-searxng
+    ports:
+      - "8080:8080"
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-change-this-to-a-long-random-secret}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:rw
+    restart: unless-stopped

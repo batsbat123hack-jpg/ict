@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bats AI</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='bats.jpg') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=3">
+</head>
+<body class="theme-black">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="collapseSidebar()"></div>
+
+  <aside class="sidebar collapsed" id="sidebar" aria-label="Navigation drawer">
+    <div class="sidebar-top">
+      <div class="sidebar-header">
+        <div class="logo-text">
+          <img class="brand-icon-img" src="{{ url_for('static', filename='bats.jpg') }}" alt="Bats AI icon">
+          <span>Bats AI</span>
+        </div>
+        <button class="icon-btn" id="closeSidebarBtn" onclick="collapseSidebar()" title="Close menu" aria-label="Close menu">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <button class="new-chat-btn" onclick="startNewChat()">
+        <i class="fa-regular fa-pen-to-square"></i> New chat
+      </button>
+
+      <nav class="nav-section">
+        <button class="nav-item" onclick="startNewChat()"><i class="fa-regular fa-message"></i> Chat</button>
+        <button class="nav-item" onclick="openSection('Library')"><i class="fa-solid fa-book"></i> Library</button>
+        <button class="nav-item" onclick="openSection('Images')"><i class="fa-regular fa-image"></i> Images</button>
+        <button class="nav-item" onclick="openSection('Scheduled')"><i class="fa-regular fa-clock"></i> Scheduled</button>
+        <button class="nav-item" onclick="openCustomizeSection()"><i class="fa-solid fa-sliders"></i> Customize</button>
+      </nav>
+
+      <div class="recent-title">Recent chats</div>
+      <div class="recent-chats" id="recentChatsList">
+        <div class="chat-history-item muted-item">No recent conversations</div>
+      </div>
+    </div>
+
+    <div class="user-profile">
+      <div class="avatar" id="userAvatar">G</div>
+      <div class="user-meta">
+        <span id="userNameLabel">Guest User</span>
+      </div>
+      <button class="auth-pill-btn" id="sidebarAuthBtn" onclick="openAuthModal()">Sign In</button>
+    </div>
+  </aside>
+
+  <main class="main-content" id="mainContent">
+    <header class="main-header">
+      <div class="header-left">
+        <button class="icon-btn" id="openSidebarBtn" onclick="toggleSidebar(event)" title="Open menu" aria-label="Open menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+
+        <button class="model-selector-btn" onclick="toggleModelDropdown(event)">
+          <img class="brand-icon-img header-brand-icon" src="{{ url_for('static', filename='bats.jpg') }}" alt="Bats AI">
+          <span id="currentModeLabel">Auto</span>
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+
+        <div class="model-dropdown" id="modelDropdownMenu">
+          <div class="model-option" onclick="selectMode('auto','Auto')">
+            <span>Auto</span>
+            <span class="desc">Balanced automatic selection</span>
+          </div>
+          <div class="model-option" onclick="selectMode('light','Light')">
+            <span>Light</span>
+            <span class="desc">Fast everyday responses</span>
+          </div>
+          <div class="model-option" onclick="selectMode('fast','Fast')">
+            <span>Fast</span>
+            <span class="desc">Quick responses</span>
+          </div>
+          <div class="model-option" onclick="selectMode('smart','Smart')">
+            <span>Smart</span>
+            <span class="desc">Reasoning-focused responses</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button class="icon-btn" id="topMenuBtn" onclick="toggleTopMenu(event)" title="Options" aria-label="Options">
+          <i class="fa-solid fa-ellipsis"></i>
+        </button>
+        <div class="top-dropdown-menu" id="topDropdownMenu">
+          <div class="top-dropdown-item" onclick="openCustomizeSection()"><i class="fa-solid fa-palette"></i> Appearance</div>
+          <div class="top-dropdown-item" onclick="startNewChat()"><i class="fa-solid fa-plus"></i> New chat</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="chat-container-wrapper">
+      <div class="chat-box" id="chatBox" aria-live="polite">
+        <div class="welcome-state" id="welcomeState">
+          <div class="multi-color-brand" aria-label="BATS AI">
+            <span class="c-b">B</span><span class="c-a1">A</span><span class="c-t">T</span><span class="c-s">S</span><span class="c-space"> </span><span class="c-a2">A</span><span class="c-i">I</span>
+          </div>
+          <h1 class="gradient-start-text">WHERE SHOULD WE START?</h1>
+        </div>
+      </div>
+    </section>
+
+    <div class="input-area-container">
+      <div class="composer-shell">
+        <div class="attachment-chip" id="attachmentChip" style="display:none;">
+          <i class="fa-solid fa-paperclip"></i>
+          <span id="attachmentName"></span>
+          <button type="button" onclick="clearAttachedFile()" aria-label="Remove file">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="input-bar">
+          <div class="plus-menu-container">
+            <button class="input-icon-btn" onclick="togglePlusMenu(event)" aria-label="Attach or tools">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+            <div class="plus-popup-menu" id="plusPopupMenu">
+              <div class="grid-options">
+                <button class="grid-option-item" onclick="triggerFileUpload('.pdf,.docx,.xlsx,.xlsm,.pptx,.txt,.md,.csv,.json')">
+                  <i class="fa-solid fa-paperclip"></i>
+                  <span>Attach file</span>
+                </button>
+                <button class="grid-option-item" onclick="selectCreateImageMenu()">
+                  <i class="fa-regular fa-image"></i>
+                  <span>Create image</span>
+                </button>
+                <button class="grid-option-item" onclick="selectCreateVideoMenu()">
+                  <i class="fa-brands fa-youtube"></i>
+                  <span>Create video</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <textarea
+            id="userInput"
+            rows="1"
+            placeholder="Ask anything"
+            autocomplete="off"
+            onkeydown="handleKey(event)"
+            oninput="autoResizeTextarea(this)"
+          ></textarea>
+
+          <label class="web-search-toggle" title="Search the live web with SearXNG">
+            <input id="webSearchToggle" type="checkbox">
+            <i class="fa-solid fa-globe"></i>
+            <span>Web</span>
+          </label>
+
+          <input
+            id="hiddenFileInput"
+            type="file"
+            accept=".pdf,.docx,.xlsx,.xlsm,.pptx,.txt,.md,.csv,.json"
+            hidden
+            onchange="handleFileSelected(event)"
+          >
+
+          <button class="input-icon-btn" id="micBtn" onclick="toggleMicrophone()" aria-label="Voice input">
+            <i class="fa-solid fa-microphone"></i>
+          </button>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" aria-label="Send message">
+            <i class="fa-solid fa-arrow-up"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="auth-modal-overlay" id="authModal" style="display:none;">
+    <div class="auth-card">
+      <button class="auth-close-btn" onclick="closeAuthModal()" aria-label="Close modal">×</button>
+      <div class="auth-header"><h2>Welcome to Bats AI</h2></div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabSignInBtn" onclick="switchAuthTab('signin')">Sign in</button>
+        <button class="auth-tab" id="tabSignUpBtn" onclick="switchAuthTab('signup')">Create account</button>
+      </div>
+      <div id="formSignIn">
+        <input class="auth-input" id="loginEmail" type="email" placeholder="Email">
+        <input class="auth-input" id="loginPassword" type="password" placeholder="Password">
+        <button class="auth-primary-btn" onclick="handleSignIn()">Sign in</button>
+      </div>
+      <div id="formSignUp" style="display:none">
+        <div id="signupStep1">
+          <input class="auth-input" id="regName" placeholder="Full name">
+          <input class="auth-input" id="regEmail" type="email" placeholder="Email">
+          <input class="auth-input" id="regPassword" type="password" placeholder="Password">
+          <button class="auth-primary-btn" id="sendOtpBtn" onclick="handleSendSignupOtp()">Send verification code</button>
+
+          <div id="otpSendingBubble" class="search-bubble" style="display:none; width:100%; justify-content:center; margin-top:12px;">
+            <div class="spinner"></div>
+            <span>Sending verification code to your email...</span>
+          </div>
+        </div>
+        <div id="signupStep2" style="display:none">
+          <input class="auth-input otp-center" id="regOtp" inputmode="numeric" maxlength="6" placeholder="••••••">
+          <button class="auth-primary-btn" id="verifyOtpBtn" onclick="handleVerifySignupOtp()">Verify and create account</button>
+          <button class="auth-sub-btn" onclick="backToStep1()">Back</button>
+        </div>
+      </div>
+      <div class="auth-alert" id="authAlert"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="{{ url_for('static', filename='script.js') }}?v=3"></script>
+</body>
+</html>
