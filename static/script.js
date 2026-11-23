@@ -12,9 +12,11 @@ let lastUserQuery = "";
 let hasChatted = false;
 let currentSelectedMode = "auto";
 let currentSessionId = 'session-' + Date.now();
+let currentConversation = [];
 const currentUsername = 'Bats Bat';
 let currentUser = null;
 let attachedFile = null;
+let imageGenerationMode = false;
 let currentSpeakingUtterance = null;
 let activeTypingTimer = null;
 
@@ -35,13 +37,53 @@ const GREEK_WORD_TO_UNICODE = {
     Phi: 'Φ', Chi: 'Χ', Psi: 'Ψ', Omega: 'Ω'
 };
 
+const LATEX_GREEK_COMMAND_TO_UNICODE = {
+    alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ϵ',
+    zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι', kappa: 'κ',
+    varkappa: 'ϰ',
+    lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', omicron: 'ο', pi: 'π', varpi: 'ϖ',
+    rho: 'ρ', varrho: 'ϱ', sigma: 'σ', varsigma: 'ς', tau: 'τ', upsilon: 'υ',
+    phi: 'φ', varphi: 'ϕ', chi: 'χ', psi: 'ψ', omega: 'ω', digamma: 'ϝ',
+    Alpha: 'Α', Beta: 'Β', Gamma: 'Γ', Delta: 'Δ', Epsilon: 'Ε', Zeta: 'Ζ',
+    Eta: 'Η', Theta: 'Θ', Iota: 'Ι', Kappa: 'Κ', Lambda: 'Λ', Mu: 'Μ',
+    Nu: 'Ν', Xi: 'Ξ', Omicron: 'Ο', Pi: 'Π', Rho: 'Ρ', Sigma: 'Σ',
+    Tau: 'Τ', Upsilon: 'Υ', Phi: 'Φ', Chi: 'Χ', Psi: 'Ψ', Omega: 'Ω',
+    varTheta: 'ϴ', Digamma: 'Ϝ'
+};
+
 function convertDisplayBracketsToLatex(text) {
     if (!text) return "";
-    // Convert standalone [ ... ] blocks that contain LaTeX commands or subscripts into $$ ... $$
-    return text.replace(/(^|\n)\[\s*([\s\S]*?)\s*\](?=\n|$)/g, (match, prefix, inner) => {
-        const looksLikeMath = /(\\[a-zA-Z]+|[_^]\{|\b[RTG]_(?:\\mu|\\nu|\{\\mu\\nu\})\b|=)/.test(inner);
-        return looksLikeMath ? `${prefix}$$${inner}$$` : match;
-    });
+    const codePattern = /(```[\s\S]*?```|`[^`\n]+`)/g;
+    return text.split(codePattern).map((part) => {
+        if (part.startsWith('```') || part.startsWith('`')) return part;
+        const withEquationEnvironments = part.replace(
+            /(^|\n)([ \t]*\\begin\{(equation\*?|align\*?|gather\*?|multline\*?)\}[\s\S]*?\\end\{\3\}[ \t]*)(?=\n|$)/g,
+            (match, prefix, equation) => `${prefix}$$${equation.trim()}$$`
+        );
+        // Convert standalone [ ... ] blocks containing LaTeX into display math.
+        return withEquationEnvironments.replace(
+            /(^|\n)\[\s*([\s\S]*?)\s*\](?=\n|$)/g,
+            (match, prefix, inner) => {
+                const looksLikeMath = /(\\[a-zA-Z]+|[_^]\{|\b[RTG]_(?:\\mu|\\nu|\{\\mu\\nu\})\b|=)/.test(inner);
+                return looksLikeMath ? `${prefix}$$${inner}$$` : match;
+            }
+        );
+    }).join('');
+}
+
+function normalizeUnsupportedGreekCommands(math) {
+    const unsupportedGreek = {
+        omicron: 'ο',
+        Alpha: 'Α', Beta: 'Β', Epsilon: 'Ε', Zeta: 'Ζ', Eta: 'Η',
+        Iota: 'Ι', Kappa: 'Κ', Mu: 'Μ', Nu: 'Ν', Omicron: 'Ο',
+        Rho: 'Ρ', Tau: 'Τ', Upsilon: 'Υ', Chi: 'Χ',
+        varTheta: 'ϴ', digamma: 'ϝ', Digamma: 'Ϝ'
+    };
+    return math.replace(/\\([A-Za-z]+)/g, (command, name) =>
+        Object.prototype.hasOwnProperty.call(unsupportedGreek, name)
+            ? `\\text{${unsupportedGreek[name]}}`
+            : command
+    );
 }
 
 function normalizeGreekAndMath(text) {
@@ -57,27 +99,70 @@ function normalizeGreekAndMath(text) {
         // Preserve code blocks and LaTeX blocks untouched so KaTeX & highlight.js render cleanly
         if (
             part.startsWith('```') ||
-            part.startsWith('$$') ||
-            part.startsWith('$') ||
-            part.startsWith('\\[') ||
-            part.startsWith('\\(') ||
             part.startsWith('`')
         ) {
             return part;
         }
+        if (
+            part.startsWith('$$') ||
+            part.startsWith('$') ||
+            part.startsWith('\\[') ||
+            part.startsWith('\\(')
+        ) {
+            return normalizeUnsupportedGreekCommands(part);
+        }
         // Replace standalone English Greek names in prose with real Unicode Greek letters
-        return part.replace(/\b([A-Za-z]{2,8})\b/g, (match, word) => {
-            return Object.prototype.hasOwnProperty.call(GREEK_WORD_TO_UNICODE, word)
-                ? GREEK_WORD_TO_UNICODE[word]
-                : match;
-        });
+        return part.replace(/\\([A-Za-z]+)/g, (command, name) =>
+            Object.prototype.hasOwnProperty.call(LATEX_GREEK_COMMAND_TO_UNICODE, name)
+                ? LATEX_GREEK_COMMAND_TO_UNICODE[name]
+                : command
+        ).replace(
+            /\b([A-Za-z]{2,8})\b/g,
+            (match, word) => (
+                Object.prototype.hasOwnProperty.call(GREEK_WORD_TO_UNICODE, word)
+                    ? GREEK_WORD_TO_UNICODE[word]
+                    : match
+            )
+        );
     }).join('');
 }
 
 function autoResizeTextarea(el) {
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    const maxHeight = 90;
+    el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+}
+
+function userPromptMarkup(content) {
+    return `
+        <div class="message user-message">
+            <div class="user-message-content">${escapeHtml(content)}</div>
+            <button type="button" class="prompt-expand-btn" hidden onclick="togglePromptExpansion(this)">Show more</button>
+        </div>
+    `;
+}
+
+function updatePromptExpansion(wrapper) {
+    const prompt = wrapper?.querySelector('.user-message-content');
+    const button = wrapper?.querySelector('.prompt-expand-btn');
+    if (!prompt || !button) return;
+    button.hidden = wrapper.querySelector('.user-message').classList.contains('expanded')
+        ? false
+        : prompt.scrollHeight <= prompt.clientHeight + 1;
+}
+
+function togglePromptExpansion(button) {
+    const bubble = button.closest('.user-message');
+    if (!bubble) return;
+    bubble.classList.toggle('expanded');
+    button.textContent = bubble.classList.contains('expanded') ? 'Show less' : 'Show more';
+    updatePromptExpansion(button.closest('.message-wrapper'));
+}
+
+function isImageFile(file) {
+    return Boolean(file && file.type.startsWith('image/'));
 }
 
 function setSidebarOpen(isOpen) {
@@ -103,11 +188,11 @@ function collapseSidebar() {
 
 function openAuthModal() {
     collapseSidebar();
-    document.getElementById('authModal').style.display = 'flex';
+    window.location.href = '/loggin';
 }
 
 function closeAuthModal() {
-    document.getElementById('authModal').style.display = 'none';
+    window.location.href = '/';
 }
 
 function switchAuthTab(tab) {
@@ -254,7 +339,7 @@ async function handleLogout() {
     currentUser = null;
     updateUserUI();
     startNewChat();
-    document.getElementById('recentChatsList').innerHTML = `<div class="chat-history-item muted-item">No recent conversations</div>`;
+    document.getElementById('recentChatsList').innerHTML = `<div class="chat-history-item muted-item">Sign in to save and view chat history</div>`;
 }
 
 function promoteImageLinksToImages(markdownText) {
@@ -325,11 +410,16 @@ function parseMediaEmbeds(htmlContent) {
 }
 
 async function loadUserHistory() {
-    const targetIdentifier = currentUser ? currentUser.email : currentUsername;
+    const recentList = document.getElementById('recentChatsList');
+    if (!currentUser) {
+        recentList.innerHTML = `<div class="chat-history-item muted-item">Sign in to save and view chat history</div>`;
+        return;
+    }
+
+    const targetIdentifier = currentUser.email;
     try {
         const res = await fetch(`/sessions/${encodeURIComponent(targetIdentifier)}`);
         const sessions = await res.json();
-        const recentList = document.getElementById('recentChatsList');
 
         if (Array.isArray(sessions) && sessions.length > 0) {
             recentList.innerHTML = '';
@@ -360,14 +450,17 @@ async function switchSession(sessionId) {
     try {
         const res = await fetch(`/history/${sessionId}`);
         const messages = await res.json();
+        if (!res.ok) throw new Error(messages.error || 'Could not load chat history.');
+        currentConversation = messages;
 
         messages.forEach((m) => {
             if (m.role === 'user') {
                 chatBox.innerHTML += `
                     <div class="message-wrapper user-wrapper">
-                        <div class="message user-message">${escapeHtml(m.content)}</div>
+                        ${userPromptMarkup(m.content)}
                     </div>
                 `;
+                updatePromptExpansion(chatBox.lastElementChild);
             } else {
                 const uniqueId = 'msg-' + Math.random().toString(36).slice(2, 10);
                 chatBox.innerHTML += `
@@ -518,9 +611,17 @@ function togglePlusMenu(event) {
 }
 
 function triggerFileUpload(acceptType) {
+    imageGenerationMode = false;
     const fileInput = document.getElementById('hiddenFileInput');
     fileInput.accept = acceptType;
+    fileInput.value = '';
     fileInput.click();
+    closeAllMenus();
+}
+
+function triggerCameraCapture() {
+    imageGenerationMode = false;
+    document.getElementById('cameraFileInput').click();
     closeAllMenus();
 }
 
@@ -536,11 +637,13 @@ function handleFileSelected(event) {
 function clearAttachedFile() {
     attachedFile = null;
     document.getElementById('hiddenFileInput').value = '';
+    document.getElementById('cameraFileInput').value = '';
     document.getElementById('attachmentChip').style.display = 'none';
 }
 
 function selectCreateImageMenu() {
     closeAllMenus();
+    imageGenerationMode = true;
     const input = document.getElementById('userInput');
     input.value = "Create an image of ";
     autoResizeTextarea(input);
@@ -549,6 +652,7 @@ function selectCreateImageMenu() {
 
 function selectCreateVideoMenu() {
     closeAllMenus();
+    imageGenerationMode = false;
     const input = document.getElementById('userInput');
     input.value = "Create a video concept and script for ";
     autoResizeTextarea(input);
@@ -597,6 +701,7 @@ function startNewChat() {
         activeTypingTimer = null;
     }
     currentSessionId = 'session-' + Date.now();
+    currentConversation = [];
     hasChatted = false;
     clearAttachedFile();
     collapseSidebar();
@@ -675,6 +780,14 @@ function toggleMicrophone() {
 }
 
 function renderMathAndHighlight(container) {
+    container.querySelectorAll('table').forEach((table) => {
+        if (table.parentElement.classList.contains('table-scroll-wrapper')) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-scroll-wrapper';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    });
+
     container.querySelectorAll('pre').forEach((preBlock) => {
         const codeEl = preBlock.querySelector('code');
         if (codeEl && !preBlock.parentElement.classList.contains('code-block-wrapper')) {
@@ -717,6 +830,113 @@ function renderMathAndHighlight(container) {
     }
 }
 
+function shouldAutoGenerateImage(prompt) {
+    return (
+        /\b(?:create|generate|draw|make|paint|illustrate)\b.{0,80}\b(?:image|picture|illustration|artwork|logo|wallpaper|poster)\b/i.test(prompt) ||
+        /^\s*(?:please\s+)?(?:draw|paint|illustrate)\s+(?:me\s+)?(?:a|an)\s+/i.test(prompt) ||
+        /\b(?:i want|show)\s+me\b.{0,40}\b(?:image|picture|illustration|artwork)\b/i.test(prompt)
+    );
+}
+
+async function generateImageFromPrompt(prompt, displayMessage) {
+    const inputField = document.getElementById('userInput');
+    const chatBox = document.getElementById('chatBox');
+    lastUserQuery = displayMessage;
+    hasChatted = true;
+    collapseSidebar();
+
+    const welcomeState = document.getElementById('welcomeState');
+    if (welcomeState) welcomeState.remove();
+
+    chatBox.insertAdjacentHTML('beforeend', `
+        <div class="message-wrapper user-wrapper">
+            ${userPromptMarkup(displayMessage)}
+        </div>
+    `);
+    const promptWrapper = chatBox.lastElementChild;
+    updatePromptExpansion(promptWrapper);
+    if (promptWrapper) chatBox.scrollTop = Math.max(0, promptWrapper.offsetTop - 12);
+    inputField.value = '';
+    inputField.placeholder = 'Ask anything';
+    autoResizeTextarea(inputField);
+
+    const loadingId = 'image-loading-' + Date.now();
+    chatBox.insertAdjacentHTML('beforeend', `
+        <div id="${loadingId}" class="search-bubble">
+            <div class="spinner"></div>
+            <span>Creating your image...</span>
+        </div>
+    `);
+
+    try {
+        const response = await fetch('/api/generate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+        const data = await response.json();
+        document.getElementById(loadingId)?.remove();
+
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Image generation failed.');
+        }
+
+        const messageId = 'image-result-' + Date.now();
+        const wrapperId = 'image-wrapper-' + Date.now();
+        chatBox.insertAdjacentHTML('beforeend', `
+            <div id="${wrapperId}" class="message-wrapper bot-wrapper">
+                <div id="${messageId}" class="message bot-message"></div>
+                ${createResponseActionBar(messageId)}
+            </div>
+        `);
+
+        const message = document.getElementById(messageId);
+        const image = document.createElement('img');
+        image.className = 'generated-image';
+        image.alt = prompt;
+        if (data.image_base64) {
+            const mimeType = data.image_mime_type || 'image/png';
+            image.src = `data:${mimeType};base64,${data.image_base64}`;
+        } else if (data.image_url && /^https?:\/\//i.test(data.image_url)) {
+            image.src = data.image_url;
+        } else {
+            throw new Error('The image generation service returned an invalid image.');
+        }
+
+        const result = document.createElement('div');
+        result.className = 'generated-image-result';
+        result.appendChild(image);
+
+        const download = document.createElement('a');
+        download.className = 'generated-image-download';
+        download.textContent = 'Download image';
+        download.href = image.src;
+        if (data.image_base64) {
+            download.download = 'bats-ai-generated-image.png';
+        } else {
+            download.target = '_blank';
+            download.rel = 'noopener noreferrer';
+        }
+        result.appendChild(download);
+        message.appendChild(result);
+
+        if (!currentUser) {
+            currentConversation.push(
+                { role: 'user', content: displayMessage },
+                { role: 'assistant', content: `Generated an image for: ${prompt}` }
+            );
+        }
+        chatBox.scrollTop = chatBox.scrollHeight;
+    } catch (error) {
+        document.getElementById(loadingId)?.remove();
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'message bot-message image-generation-error';
+        errorMessage.textContent = `Image generation failed: ${error.message}`;
+        chatBox.appendChild(errorMessage);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
+
 async function sendMessage(customText = null) {
     if (activeTypingTimer) {
         clearTimeout(activeTypingTimer);
@@ -728,10 +948,26 @@ async function sendMessage(customText = null) {
     const rawTyped = customText !== null ? customText : inputField.value.trim();
     const currentFile = attachedFile;
 
+    if (rawTyped && !currentFile && (imageGenerationMode || shouldAutoGenerateImage(rawTyped))) {
+        const prompt = rawTyped.replace(
+            /^\s*(?:please\s+)?(?:create|generate|make)\s+(?:me\s+)?(?:an?\s+)?image\s+(?:of|for)\s*/i,
+            ''
+        ).trim();
+        if (!prompt) {
+            inputField.value = '';
+            inputField.placeholder = 'Describe the image you want to create';
+            autoResizeTextarea(inputField);
+            inputField.focus();
+            return;
+        }
+        imageGenerationMode = false;
+        return generateImageFromPrompt(prompt, rawTyped);
+    }
+
     if (!rawTyped && !currentFile) return;
 
     const displayMessage = currentFile
-        ? `[Attached File: ${currentFile.name}] ${rawTyped}`.trim()
+        ? `[Attached ${isImageFile(currentFile) ? 'Image' : 'File'}: ${currentFile.name}] ${rawTyped}`.trim()
         : rawTyped;
 
     lastUserQuery = displayMessage;
@@ -743,9 +979,12 @@ async function sendMessage(customText = null) {
 
     chatBox.insertAdjacentHTML('beforeend', `
         <div class="message-wrapper user-wrapper">
-            <div class="message user-message">${escapeHtml(displayMessage)}</div>
+            ${userPromptMarkup(displayMessage)}
         </div>
     `);
+    const promptWrapper = chatBox.lastElementChild;
+    updatePromptExpansion(promptWrapper);
+    if (promptWrapper) chatBox.scrollTop = Math.max(0, promptWrapper.offsetTop - 12);
 
     if (customText === null) {
         inputField.value = '';
@@ -767,6 +1006,9 @@ async function sendMessage(customText = null) {
         formData.append('message', promptToSend);
         formData.append('mode', currentSelectedMode);
         formData.append('session_id', currentSessionId);
+        if (!currentUser) {
+            formData.append('conversation', JSON.stringify(currentConversation.slice(-40)));
+        }
         formData.append('web_search', document.getElementById('webSearchToggle')?.checked ? 'true' : 'false');
         if (currentFile) {
             formData.append('file', currentFile, currentFile.name);
@@ -782,6 +1024,13 @@ async function sendMessage(customText = null) {
         if (loader) loader.remove();
 
         if (data.reply) {
+            if (!data.history_saved) {
+                currentConversation.push(
+                    { role: 'user', content: promptToSend },
+                    { role: 'assistant', content: data.reply }
+                );
+            }
+
             const uniqueId = 'msg-' + Date.now();
             const wrapperId = 'wrap-' + Date.now();
             chatBox.insertAdjacentHTML('beforeend', `
@@ -875,6 +1124,15 @@ function escapeHtml(text) {
 window.addEventListener('DOMContentLoaded', () => {
     setSidebarOpen(false);
     checkAuth();
+    if (navigator.mediaDevices?.getUserMedia && navigator.mediaDevices?.enumerateDevices) {
+        navigator.mediaDevices.enumerateDevices()
+            .then((devices) => {
+                const hasCamera = devices.some((device) => device.kind === 'videoinput');
+                const cameraOption = document.getElementById('cameraOption');
+                if (cameraOption) cameraOption.hidden = !hasCamera;
+            })
+            .catch((error) => console.warn('Could not detect camera devices.', error));
+    }
     const savedTheme = localStorage.getItem('bats_ai_theme');
     document.body.className = savedTheme === 'theme-white' ? 'theme-white' : 'theme-black';
 });

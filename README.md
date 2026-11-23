@@ -1,7 +1,7 @@
 # Bats AI — updated project
 
 ## File understanding added
-The chat now accepts PDF, DOCX, XLSX/XLSM, PPTX, TXT, Markdown, CSV and JSON uploads. The backend extracts their text/table contents and sends that context to the selected AI model, so you can ask questions, request summaries, calculations, comparisons and explanations based on the uploaded file.
+The chat accepts PDF, DOCX, XLSX/XLSM, PPTX, TXT, Markdown, CSV, JSON, and image uploads. Images supported by Pillow—including common JPEG, PNG, GIF, WebP, BMP, TIFF, HEIC/HEIF and AVIF formats—are converted to JPEG or PNG before being sent to the vision model. Camera RAW formats may not be supported. The backend extracts document text/table contents and sends that context to the selected AI model, so you can ask questions, request summaries, calculations, comparisons and explanations based on the uploaded file.
 
 **Limitations:** scanned/image-only PDFs need OCR before their text can be read. Password-protected or damaged files may fail. Each upload is limited to 12 MB, and only extracted text (up to 100,000 characters) is sent to the model.
 
@@ -19,8 +19,11 @@ The existing API-key configuration and original key values have been retained in
 **Security warning:** the keys in the original uploaded source were exposed in this chat's file-processing workflow. Rotate/revoke them with their providers before public deployment. For safer operation, set replacement values in environment variables; environment variables override the defaults. Never commit `.env`, API keys, or the SQLite database to GitHub.
 
 ## Other notes
-- OTP email requires valid `MAIL_USERNAME` and `MAIL_PASSWORD` (Gmail App Password).
+- Email/password accounts are created immediately and do not require email verification.
+- Social sign-in is available for Google, Facebook, and GitHub. Register OAuth apps and set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET`, and `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` in the server environment. Set each provider's callback URL to `https://your-domain/oauth/<provider>/callback` (replace `<provider>` with `google`, `facebook`, or `github`). Keep these credentials private. ChatGPT sign-in is not offered because ChatGPT does not provide an identity-provider flow for third-party apps.
+- Chat history is saved only for signed-in accounts. Guest chats stay in browser memory until a new chat or page refresh.
 - Image generation and other provider features may incur provider charges or have free-tier limits.
+- To generate images, configure `GEMINI_API_KEY`, then choose **Create image** from the **+** menu, describe the image, and send. The optional `GEMINI_IMAGE_MODEL` setting defaults to `gemini-nano-banana-2.1`. Gemini free-tier access and quotas vary by account and can change; prompts are sent to Google. Generated images can be downloaded from the chat.
 - Embedded YouTube videos depend on the video owner's embed permissions.
 
 

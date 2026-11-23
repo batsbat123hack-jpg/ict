@@ -505,12 +505,71 @@ img.header-brand-icon {
   padding: 11px 18px;
   border-radius: 22px;
   white-space: pre-wrap;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.user-message-content {
+  width: 100%;
+  max-height: 8.25em;
+  overflow: hidden;
+}
+
+.user-message.expanded .user-message-content {
+  max-height: none;
+}
+
+.prompt-expand-btn {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.prompt-expand-btn:hover {
+  color: var(--text-primary);
+}
+
+.prompt-expand-btn[hidden],
+.camera-option[hidden] {
+  display: none;
 }
 
 .bot-message {
   width: 100%;
   padding: 2px 0;
   background: transparent;
+}
+
+.generated-image-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.generated-image {
+  display: block;
+  max-width: min(100%, 640px);
+  max-height: 640px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  object-fit: contain;
+}
+
+.generated-image-download {
+  color: var(--text-primary);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.image-generation-error {
+  color: #ef4444;
 }
 
 .bot-message p {
@@ -578,18 +637,27 @@ img.header-brand-icon {
 }
 
 .bot-message table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
-  margin: 14px 0;
   font-size: 14px;
-  display: block;
+  table-layout: auto;
+}
+
+.table-scroll-wrapper {
+  max-width: 100%;
+  margin: 14px 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 .bot-message th, .bot-message td {
   border: 1px solid var(--border-color);
   padding: 9px 12px;
   text-align: left;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .bot-message th {
@@ -789,7 +857,7 @@ img.header-brand-icon {
 .input-bar textarea {
   flex: 1;
   min-width: 0;
-  max-height: 160px;
+  max-height: 90px;
   background: transparent;
   border: 0;
   outline: none;
@@ -798,7 +866,7 @@ img.header-brand-icon {
   font-size: 15px;
   line-height: 1.45;
   padding: 7px 4px;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 .input-bar textarea::placeholder {
@@ -897,10 +965,11 @@ img.header-brand-icon {
   font-size: 12.5px;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 6px 8px;
+  height: 36px;
+  padding: 0 8px;
   border-radius: 999px;
   flex-shrink: 0;
-  align-self: center;
+  align-self: flex-end;
 }
 
 .web-search-toggle:hover {
@@ -911,6 +980,13 @@ img.header-brand-icon {
 .web-search-toggle input {
   accent-color: #10a37f;
   margin: 0;
+}
+
+.composer-tools-row {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding-left: 4px;
 }
 
 /* Panels & Auth Modal */

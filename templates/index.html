@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
 </head>
 <body class="theme-black">
   <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="collapseSidebar()"></div>
@@ -130,6 +130,14 @@
                   <i class="fa-solid fa-paperclip"></i>
                   <span>Attach file</span>
                 </button>
+                <button class="grid-option-item" onclick="triggerFileUpload('image/*')">
+                  <i class="fa-regular fa-image"></i>
+                  <span>Upload image</span>
+                </button>
+                <button class="grid-option-item camera-option" id="cameraOption" onclick="triggerCameraCapture()" hidden>
+                  <i class="fa-solid fa-camera"></i>
+                  <span>Camera</span>
+                </button>
                 <button class="grid-option-item" onclick="selectCreateImageMenu()">
                   <i class="fa-regular fa-image"></i>
                   <span>Create image</span>
@@ -151,12 +159,6 @@
             oninput="autoResizeTextarea(this)"
           ></textarea>
 
-          <label class="web-search-toggle" title="Search the live web with SearXNG">
-            <input id="webSearchToggle" type="checkbox">
-            <i class="fa-solid fa-globe"></i>
-            <span>Web</span>
-          </label>
-
           <input
             id="hiddenFileInput"
             type="file"
@@ -164,7 +166,19 @@
             hidden
             onchange="handleFileSelected(event)"
           >
-
+          <input
+            id="cameraFileInput"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onchange="handleFileSelected(event)"
+          >
+          <label class="web-search-toggle" title="Automatically searches for current information. Turn on to always search the web.">
+            <input id="webSearchToggle" type="checkbox">
+            <i class="fa-solid fa-globe"></i>
+            <span>Web</span>
+          </label>
           <button class="input-icon-btn" id="micBtn" onclick="toggleMicrophone()" aria-label="Voice input">
             <i class="fa-solid fa-microphone"></i>
           </button>
@@ -172,49 +186,15 @@
             <i class="fa-solid fa-arrow-up"></i>
           </button>
         </div>
+
       </div>
     </div>
   </main>
-
-  <div class="auth-modal-overlay" id="authModal" style="display:none;">
-    <div class="auth-card">
-      <button class="auth-close-btn" onclick="closeAuthModal()" aria-label="Close modal">×</button>
-      <div class="auth-header"><h2>Welcome to Bats AI</h2></div>
-      <div class="auth-tabs">
-        <button class="auth-tab active" id="tabSignInBtn" onclick="switchAuthTab('signin')">Sign in</button>
-        <button class="auth-tab" id="tabSignUpBtn" onclick="switchAuthTab('signup')">Create account</button>
-      </div>
-      <div id="formSignIn">
-        <input class="auth-input" id="loginEmail" type="email" placeholder="Email">
-        <input class="auth-input" id="loginPassword" type="password" placeholder="Password">
-        <button class="auth-primary-btn" onclick="handleSignIn()">Sign in</button>
-      </div>
-      <div id="formSignUp" style="display:none">
-        <div id="signupStep1">
-          <input class="auth-input" id="regName" placeholder="Full name">
-          <input class="auth-input" id="regEmail" type="email" placeholder="Email">
-          <input class="auth-input" id="regPassword" type="password" placeholder="Password">
-          <button class="auth-primary-btn" id="sendOtpBtn" onclick="handleSendSignupOtp()">Send verification code</button>
-
-          <div id="otpSendingBubble" class="search-bubble" style="display:none; width:100%; justify-content:center; margin-top:12px;">
-            <div class="spinner"></div>
-            <span>Sending verification code to your email...</span>
-          </div>
-        </div>
-        <div id="signupStep2" style="display:none">
-          <input class="auth-input otp-center" id="regOtp" inputmode="numeric" maxlength="6" placeholder="••••••">
-          <button class="auth-primary-btn" id="verifyOtpBtn" onclick="handleVerifySignupOtp()">Verify and create account</button>
-          <button class="auth-sub-btn" onclick="backToStep1()">Back</button>
-        </div>
-      </div>
-      <div class="auth-alert" id="authAlert"></div>
-    </div>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-  <script src="{{ url_for('static', filename='script.js') }}?v=3"></script>
+  <script src="{{ url_for('static', filename='script.js') }}?v=6"></script>
 </body>
 </html>

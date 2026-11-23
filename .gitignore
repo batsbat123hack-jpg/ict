@@ -1,0 +1,8 @@
+.env
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+bats_ai.db
+static/generated/*.png
+!static/generated/.gitkeep
